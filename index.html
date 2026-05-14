@@ -73,7 +73,7 @@
         <span class="popup-note">Click → Copy URL → Open new tab → Paste → Allow → Then START</span>
     </div>
 
-    <!-- SETTINGS PANEL - DEFAULT 3 ROUNDS -->
+    <!-- SETTINGS PANEL - DEFAULT 3 -->
     <div class="settings-panel">
         <label for="roundInput">🔄 ROUNDS:</label>
         <input type="number" id="roundInput" value="3" min="1" max="100" onchange="saveRoundSetting()">
@@ -149,7 +149,7 @@
     const btnsTotal = 40;
     let cMap = {};
     for (let i = 1; i <= btnsTotal; i++) cMap['btn_' + i] = 0;
-    const STORE = 'swifox_40_v1', RKEY = 'swifox_rounds_v1';
+    const STORE = 'swifox_40_v2', RKEY = 'swifox_rounds_v2';
 
     function lCounts() { try { let s = localStorage.getItem(STORE); if (s) { let p = JSON.parse(s); for (let k in cMap) if (typeof p[k] === 'number') cMap[k] = p[k]; } } catch (e) {} }
     function sCounts() { try { localStorage.setItem(STORE, JSON.stringify(cMap)); } catch (e) {} }
@@ -164,7 +164,6 @@
     }
 
     function inc(id) { if (cMap.hasOwnProperty(id)) { cMap[id]++; refresh(); sCounts(); } }
-
     function resetAllCounters() { for (let i = 1; i <= btnsTotal; i++) cMap['btn_' + i] = 0; refresh(); sCounts(); }
 
     function openPopupSettings() {
@@ -172,9 +171,8 @@
         if (a) { a.document.write(`<html><head><title>Allow Popups</title><style>body{font-family:sans-serif;background:#1a0b2e;color:#fff;text-align:center;padding:40px;line-height:1.8;}.steps{background:#2d1b4e;padding:25px;border-radius:15px;display:inline-block;text-align:left;margin:20px;}.highlight{color:#ffd166;font-weight:bold;}code{background:#000;padding:4px 10px;border-radius:6px;color:#ffd166;font-size:16px;}button{background:#ff6b9d;color:#fff;border:none;padding:12px 30px;border-radius:30px;font-size:16px;cursor:pointer;margin-top:15px;}</style></head><body><h1>🔓 Allow Popups</h1><div class="steps"><p>📋 <span class="highlight">Step 1:</span> Copy URL:</p><p><code>chrome://settings/content/popups</code></p><p>📌 <span class="highlight">Step 2:</span> Open new tab (Ctrl+T)</p><p>📎 <span class="highlight">Step 3:</span> Paste & Enter</p><p>🔍 <span class="highlight">Step 4:</span> Allow this site</p><p>🔄 <span class="highlight">Step 5:</span> Come back & START</p></div><button onclick="navigator.clipboard.writeText('chrome://settings/content/popups').then(function(){}).catch(function(){})">📋 COPY SETTINGS URL</button></body></html>`); a.document.close(); }
     }
 
-    // ✅ FIX: Default 3 rounds
+    // ✅ Default 3 rounds
     function gRounds() { try { let s = localStorage.getItem(RKEY); return s ? parseInt(s) : 3; } catch (e) { return 3; } }
-    
     function saveRoundSetting() {
         let inp = document.getElementById('roundInput'), cf = document.getElementById('saveConfirm');
         let v = parseInt(inp.value); if (isNaN(v) || v < 1) v = 1; if (v > 100) v = 100;
@@ -182,16 +180,34 @@
         document.getElementById('roundDisplay').innerText = v;
         cf.innerText = '✅ Saved: ' + v + ' round(s)'; setTimeout(() => cf.innerText = '', 2000);
     }
-    
     function loadRounds() { let r = gRounds(); document.getElementById('roundInput').value = r; document.getElementById('roundDisplay').innerText = r; }
 
-    // ✅ FIX: Fast tab open function
-    function fastOpen(url) {
-        // Method 1: Try window.open first
-        let w = window.open(url, '_blank');
-        
-        // Method 2: If blocked/null, use anchor click immediately (no delay)
-        if (!w || w.closed || typeof w.closed === 'undefined') {
+    // ✅ BACKGROUND TAB OPEN - Your page stays in front!
+    function openInBackground(url) {
+        try {
+            // Method: Open in background using window.open then immediately blur
+            let w = window.open(url, '_blank');
+            if (w) {
+                // Immediately focus back on current window (your page)
+                window.focus();
+                // Try to blur the new window to keep it in background
+                setTimeout(function() {
+                    try { w.blur(); } catch(e) {}
+                    window.focus();
+                }, 50);
+            } else {
+                // Fallback: anchor click
+                let a = document.createElement('a');
+                a.href = url;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.focus();
+            }
+        } catch(e) {
+            // Last resort
             let a = document.createElement('a');
             a.href = url;
             a.target = '_blank';
@@ -200,6 +216,8 @@
             a.click();
             document.body.removeChild(a);
         }
+        // Always bring focus back to this page
+        setTimeout(function() { window.focus(); }, 100);
     }
 
     let running = false;
@@ -217,8 +235,8 @@
             if (idx >= btns.length) { round++; idx = 0; if (round > rds) return; st.textContent = '🔄 Round ' + round + '/' + rds + ' · ' + cur + '/' + all; return; }
             let b = btns[idx], bid = b.id, url = b.href || b.getAttribute('href');
             if (url) {
-                // ✅ Use fastOpen instead of old method
-                fastOpen(url);
+                // ✅ OPEN IN BACKGROUND - Your page stays visible
+                openInBackground(url);
                 cur++; if (bid && cMap.hasOwnProperty(bid)) inc(bid);
                 st.textContent = '🔄 R' + round + '/' + rds + ' · #' + cur + '/' + all + ' ✅';
             } else { cur++; st.textContent = '🔄 R' + round + '/' + rds + ' · #' + cur + '/' + all + ' ⚠️'; }
@@ -228,7 +246,7 @@
 
     for (let i = 1; i <= btnsTotal; i++) { let b = document.getElementById('btn_' + i); if (b) b.addEventListener('click', () => inc('btn_' + i)); }
     lCounts(); loadRounds(); refresh();
-    console.log('✅ 40 btns | Default Rounds: 3 | Fast Tab Open Active');
+    console.log('✅ 40 btns | Default Rounds: 3 | Background Tab Open | Page stays VISIBLE');
 </script>
 </body>
 </html>
